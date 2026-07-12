@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="每日查询纳斯达克100指数前瞻市盈率（Forward P/E），自包含单文件，无需联网即可查看。">
+<title>纳斯达克100 前瞻市盈率 · 每日查询</title>
+<style>
+  :root{
+    --bg:#0b0f1a; --panel:#121826; --panel-2:#161d2e; --line:#222b40;
+    --txt:#e6ecf5; --muted:#8a97ad; --accent:#4f8cff; --green:#2ecc71;
+    --red:#ff5d6c; --amber:#ffb020; --blue:#56b6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#15203a 0%,var(--bg) 60%);
+    color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 48px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:20px}
+  h1{font-size:22px;margin:0;font-weight:700;letter-spacing:.3px}
+  h1 .sub{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:4px}
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel-2);color:var(--txt);
+    padding:9px 14px;border-radius:10px;font-size:13px;font-weight:600;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+  button:hover{border-color:var(--accent);color:#fff}
+  button:active{transform:translateY(1px)}
+  button.primary{background:linear-gradient(180deg,#3f7bff,#2f63e6);border-color:transparent;color:#fff}
+  .status{font-size:12px;color:var(--muted);min-height:16px;max-width:420px;text-align:right}
+  .status.error{color:var(--red)}
+  .status.loading{color:var(--blue)}
+  .status.ok{color:var(--green)}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:16px;padding:18px 18px 16px;position:relative;overflow:hidden}
+  .card .label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .card .value{font-size:38px;font-weight:800;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+  .card .unit{font-size:13px;color:var(--muted);font-weight:600}
+  .card .meta{font-size:12px;color:var(--muted);margin-top:6px}
+  .badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:8px}
+  .b-low{background:rgba(46,204,113,.15);color:var(--green);border:1px solid rgba(46,204,113,.35)}
+  .b-mid{background:rgba(86,182,255,.15);color:var(--blue);border:1px solid rgba(86,182,255,.35)}
+  .b-high{background:rgba(255,93,108,.15);color:var(--red);border:1px solid rgba(255,93,108,.35)}
+  .thermo{height:8px;border-radius:999px;background:var(--line);margin-top:10px;overflow:hidden}
+  .thermo>i{display:block;height:100%;border-radius:999px;
+    background:linear-gradient(90deg,var(--green),var(--amber),var(--red))}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:16px;padding:16px;margin-bottom:14px}
+  .panel h2{font-size:14px;margin:0 0 12px;font-weight:700;color:#cdd6e6}
+  #chart{width:100%;position:relative}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:4px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .grid2{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+  .hist-list{max-height:240px;overflow:auto}
+  .hist-list .row{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px}
+  .hist-list .row span:last-child{font-weight:700;font-variant-numeric:tabular-nums}
+  .hist-empty{color:var(--muted);font-size:13px;padding:12px 4px}
+  footer{color:var(--muted);font-size:12px;margin-top:18px;line-height:1.7}
+  footer a{color:var(--blue);text-decoration:none}
+  .pill{display:inline-block;font-size:11px;color:var(--muted);border:1px solid var(--line);
+    border-radius:999px;padding:2px 9px;margin-right:6px}
+  /* ── 智能定投评分 ── */
+  .dca-hero{display:flex;gap:14px;align-items:center;justify-content:space-around;flex-wrap:wrap;margin:4px 0 2px}
+  .dca-box{flex:1;min-width:120px;text-align:center}
+  .dca-num{font-size:50px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+  .dca-num.score{color:var(--accent)}
+  .dca-num.mult{color:var(--green)}
+  .dca-lab{font-size:12px;color:var(--muted);margin-top:6px}
+  .dca-zone{display:block;text-align:center;margin:14px auto 0;width:fit-content}
+  .dca-note{font-size:12px;color:var(--muted);line-height:1.65;margin:14px 2px 0}
+  .rules{list-style:none;padding:0;margin:0;font-size:13px}
+  .rules li{padding:10px 4px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+  .rules li:last-child{border-bottom:none}
+  .rules .ic{flex:0 0 auto;width:18px;text-align:center;color:var(--accent);font-weight:700}
+  .rules b{color:var(--txt)}
+  .rules span.tx{color:var(--muted)}
+  @media(max-width:760px){
+    .cards{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+    .card .value{font-size:32px}
+    .status{text-align:left}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>纳斯达克100 · 前瞻市盈率
+        <span class="sub">Nasdaq-100 前瞻市盈率 · 智能定投评分 · 每日查询</span>
+      </h1>
+    </div>
+    <div class="toolbar">
+      <span class="status" id="status"></span>
+      <button class="primary" id="refreshBtn" onclick="load()">🔄 查询最新数据</button>
+    </div>
+  </header>
+
+  <section class="cards">
+    <div class="card">
+      <div class="label">前瞻市盈率 FORWARD P/E</div>
+      <div class="value" id="fwdVal">—</div>
+      <div class="unit">× 未来12个月共识盈利预测</div>
+      <div class="meta" id="fwdMeta">数据更新于 —</div>
+    </div>
+    <div class="card">
+      <div class="label">静态市盈率 TRAILING P/E</div>
+      <div class="value" id="ttmVal">—</div>
+      <div class="unit">× 过去12个月盈利</div>
+      <div class="meta" id="ttmMeta">用于对比参考</div>
+    </div>
+    <div class="card">
+      <div class="label">相对历史估值分位</div>
+      <div class="value" id="pctVal">—</div>
+      <div class="unit" id="pctUnit">基于 2001 年以来数据</div>
+      <div class="thermo"><i id="thermoBar" style="width:0%"></i></div>
+      <div id="valBadge"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>历史走势 · 前瞻市盈率（蓝）与近期静态市盈率（灰）</h2>
+    <div id="chart"></div>
+    <div class="legend">
+      <span><i style="background:#4f8cff"></i>前瞻 P/E（2001 至今）</span>
+      <span><i style="background:#5b6678"></i>静态 P/E（近期日度）</span>
+      <span><i style="background:#ffb020"></i>历史均值</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>智能定投评分 · 基于前瞻市盈率估值</h2>
+    <div class="dca-hero">
+      <div class="dca-box">
+        <div class="dca-num score" id="dcaScore">—</div>
+        <div class="dca-lab">定投评分 / 100</div>
+      </div>
+      <div class="dca-box">
+        <div class="dca-num mult" id="dcaMult">—</div>
+        <div class="dca-lab">建议定投倍数</div>
+      </div>
+    </div>
+    <div id="dcaZone" class="badge b-mid dca-zone">—</div>
+    <div class="thermo" style="margin-top:14px"><i id="dcaBar" style="width:0%"></i></div>
+    <p class="dca-note">评分越高＝估值越低、越适合多投；越低＝估值越高、应少投。基于前瞻市盈率自 2001 年以来的历史百分位计算，并映射为定投倍数。</p>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>评分区间与倍数</h2>
+      <table>
+        <thead><tr><th>评分区间</th><th>估值状态</th><th style="text-align:right">定投倍数</th></tr></thead>
+        <tbody>
+          <tr><td>75 – 100</td><td>低估区</td><td class="num">1.5 – 2.5×</td></tr>
+          <tr><td>50 – 75</td><td>标准区</td><td class="num">1.0 – 1.5×</td></tr>
+          <tr><td>25 – 50</td><td>偏高估</td><td class="num">0.7 – 1.0×</td></tr>
+          <tr><td>0 – 25</td><td>极度高估</td><td class="num">0.5 – 0.7×</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>风险控制体系（参考框架）</h2>
+      <ul class="rules">
+        <li><span class="ic">①</span><span class="tx"><b>限额控制</b> · 单周定投上限为基础金额的 5 倍，防止过度集中。</span></li>
+        <li><span class="ic">②</span><span class="tx"><b>降档保护</b> · 连续多日高评分后自动降档，避免情绪过热追高。</span></li>
+        <li><span class="ic">③</span><span class="tx"><b>熔断机制</b> · 持仓回撤达 15% 触发熔断，回归 1 倍基础定投。</span></li>
+        <li><span class="ic">④</span><span class="tx"><b>仓位控制</b> · 纳指仓位不超过流动资产的 25%，保持资产平衡。</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>历史对比</h2>
+      <table id="statsTable">
+        <thead><tr><th>指标</th><th style="text-align:right">数值</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>我的查询记录（本地保存）</h2>
+      <div class="hist-list" id="histList"><div class="hist-empty">暂无记录，点击「查询最新数据」即开始记录。</div></div>
+    </div>
+  </section>
+
+  <footer>
+    <div>
+      <span class="pill">数据源</span>
+      <a href="https://historyofmarket.com/nasdaq/ndx-forward-pe/" target="_blank" rel="noopener">History of Market</a>
+      （Bloomberg BEst 分析师共识前瞻盈利，美股收盘后每日刷新；前瞻序列为月度，静态序列为日度）
+    </div>
+    <div style="margin-top:8px">
+      <span class="pill">说明</span>
+      本页所有计算与展示仅供参考，不构成任何投资建议。市盈率为估值参考指标之一，请结合其他因素独立判断。
+    </div>
+    <div style="margin-top:8px">
+      <span class="pill">定投</span>
+      评分为基于前瞻市盈率历史百分位的简化估值框架，用于辅助判断定投节奏，并非专业投资建议，也不同于 btcdca.me 的 MA200 偏离策略。
+    </div>
+    <div style="margin-top:8px;color:#6b7689">
+      提示：直接双击打开时浏览器会拦截跨网请求，将使用文件内置的最新快照；如需每日自动获取实时数据，请用本地服务器打开（<code>python3 -m http.server 8000</code>）或部署到任意静态网站托管。
+    </div>
+  </footer>
+</div>
+
+<script>
+const DATA_URL = "https://historyofmarket.com/api/ndx/forward-pe.json";
+const LS_KEY = "ndx_fwd_pe_checks_v1";
+const SNAPSHOT = {"updated": "2026-07-11", "label": "Nasdaq 100 Trailing P/E (cap-weighted) + Forward P/E (Bloomberg BEst, monthly)", "current": {"trailing": 34.4, "forward": 24.29, "trailingCoverage": 97.68, "forwardCoverage": 100.0, "totalWeight": 100.0}, "historyStarts": {"trailing": "2026-05-11", "forward": "2001-04-30"}, "trailing": [{"date": "2026-05-11", "value": 36.6}, {"date": "2026-05-12", "value": 36.77}, {"date": "2026-05-13", "value": 36.29}, {"date": "2026-05-14", "value": 37.02}, {"date": "2026-05-15", "value": 37.28}, {"date": "2026-05-16", "value": 36.43}, {"date": "2026-05-19", "value": 36.11}, {"date": "2026-05-20", "value": 35.75}, {"date": "2026-05-21", "value": 35.72}, {"date": "2026-05-22", "value": 35.83}, {"date": "2026-05-23", "value": 36.05}, {"date": "2026-05-26", "value": 36.05}, {"date": "2026-05-27", "value": 36.88}, {"date": "2026-05-28", "value": 36.81}, {"date": "2026-05-29", "value": 37.16}, {"date": "2026-05-31", "value": 37.34}, {"date": "2026-06-02", "value": 37.7}, {"date": "2026-06-03", "value": 38.23}, {"date": "2026-06-04", "value": 38.19}, {"date": "2026-06-05", "value": 37.61}, {"date": "2026-06-09", "value": 36.4}, {"date": "2026-06-10", "value": 36.07}, {"date": "2026-06-11", "value": 35.32}, {"date": "2026-06-12", "value": 52.66}, {"date": "2026-06-13", "value": 36.3}, {"date": "2026-06-16", "value": 37.49}, {"date": "2026-06-17", "value": 36.73}, {"date": "2026-06-18", "value": 36.77}, {"date": "2026-06-19", "value": 37.89}, {"date": "2026-06-23", "value": 37.94}, {"date": "2026-06-24", "value": 35.99}, {"date": "2026-06-25", "value": 33.61}, {"date": "2026-06-26", "value": 34.02}, {"date": "2026-06-27", "value": 33.34}, {"date": "2026-06-30", "value": 34.47}, {"date": "2026-07-01", "value": 35.35}, {"date": "2026-07-02", "value": 34.52}, {"date": "2026-07-03", "value": 33.74}, {"date": "2026-07-04", "value": 33.73}, {"date": "2026-07-07", "value": 34.53}, {"date": "2026-07-08", "value": 33.98}, {"date": "2026-07-09", "value": 33.95}, {"date": "2026-07-10", "value": 34.12}, {"date": "2026-07-11", "value": 34.4}], "forward": [{"date": "2001-04-30", "value": 75.38}, {"date": "2001-05-31", "value": 59.95}, {"date": "2001-06-29", "value": 68.04}, {"date": "2001-07-31", "value": 69.02}, {"date": "2001-08-31", "value": 62.05}, {"date": "2001-09-28", "value": 48.66}, {"date": "2001-10-31", "value": 59.01}, {"date": "2001-11-30", "value": 66.94}, {"date": "2001-12-31", "value": 50.4}, {"date": "2002-01-31", "value": 49.29}, {"date": "2002-02-28", "value": 41.56}, {"date": "2002-03-29", "value": 44.19}, {"date": "2002-04-30", "value": 38.75}, {"date": "2002-05-31", "value": 35.96}, {"date": "2002-06-28", "value": 30.17}, {"date": "2002-07-31", "value": 28.12}, {"date": "2002-08-30", "value": 27.33}, {"date": "2002-09-30", "value": 24.26}, {"date": "2002-10-31", "value": 28.94}, {"date": "2002-11-29", "value": 32.32}, {"date": "2002-12-31", "value": 27.22}, {"date": "2003-01-31", "value": 26.17}, {"date": "2003-02-28", "value": 26.07}, {"date": "2003-03-31", "value": 25.5}, {"date": "2003-04-30", "value": 27.3}, {"date": "2003-05-30", "value": 28.84}, {"date": "2003-06-30", "value": 28.21}, {"date": "2003-07-31", "value": 29.07}, {"date": "2003-08-29", "value": 29.9}, {"date": "2003-09-30", "value": 28.17}, {"date": "2003-10-31", "value": 29.34}, {"date": "2003-11-28", "value": 28.74}, {"date": "2003-12-31", "value": 28.53}, {"date": "2004-01-30", "value": 29.01}, {"date": "2004-02-27", "value": 28.57}, {"date": "2004-03-31", "value": 27.95}, {"date": "2004-04-30", "value": 27.23}, {"date": "2004-05-31", "value": 28.49}, {"date": "2004-06-30", "value": 29.47}, {"date": "2004-07-30", "value": 27.21}, {"date": "2004-08-31", "value": 26.6}, {"date": "2004-09-30", "value": 27.45}, {"date": "2004-10-29", "value": 28.89}, {"date": "2004-11-30", "value": 30.54}, {"date": "2004-12-31", "value": 31.5}, {"date": "2005-05-31", "value": 23.07}, {"date": "2005-06-30", "value": 21.91}, {"date": "2005-07-29", "value": 22.82}, {"date": "2005-08-31", "value": 22.65}, {"date": "2005-09-30", "value": 23.01}, {"date": "2005-10-31", "value": 22.57}, {"date": "2005-11-30", "value": 23.95}, {"date": "2005-12-30", "value": 17.8}, {"date": "2006-01-31", "value": 16.39}, {"date": "2006-02-28", "value": 15.67}, {"date": "2006-03-31", "value": 17.28}, {"date": "2006-04-28", "value": 16.95}, {"date": "2006-05-31", "value": 15.41}, {"date": "2006-06-30", "value": 15.55}, {"date": "2006-07-31", "value": 20.7}, {"date": "2006-08-31", "value": 21.38}, {"date": "2006-09-29", "value": 21.85}, {"date": "2006-10-31", "value": 22.36}, {"date": "2006-11-30", "value": 22.61}, {"date": "2006-12-29", "value": 22.22}, {"date": "2007-01-31", "value": 22.42}, {"date": "2007-02-28", "value": 21.83}, {"date": "2007-03-30", "value": 21.51}, {"date": "2007-04-30", "value": 22.19}, {"date": "2007-05-31", "value": 22.78}, {"date": "2007-06-29", "value": 22.28}, {"date": "2007-07-31", "value": 21.84}, {"date": "2007-08-31", "value": 22.02}, {"date": "2007-09-28", "value": 22.63}, {"date": "2007-10-31", "value": 23.76}, {"date": "2007-11-30", "value": 21.99}, {"date": "2007-12-31", "value": 21.65}, {"date": "2008-01-31", "value": 19.14}, {"date": "2008-02-29", "value": 18.22}, {"date": "2008-03-31", "value": 18.57}, {"date": "2008-04-30", "value": 19.8}, {"date": "2008-05-30", "value": 20.82}, {"date": "2008-06-30", "value": 18.38}, {"date": "2008-07-31", "value": 18.47}, {"date": "2008-08-29", "value": 18.55}, {"date": "2008-09-30", "value": 15.85}, {"date": "2008-10-31", "value": 14.04}, {"date": "2008-11-28", "value": 13.07}, {"date": "2008-12-31", "value": 13.59}, {"date": "2009-01-30", "value": 14.15}, {"date": "2009-02-27", "value": 13.83}, {"date": "2009-03-31", "value": 15.32}, {"date": "2009-04-30", "value": 17.05}, {"date": "2009-05-29", "value": 17.31}, {"date": "2009-06-30", "value": 17.4}, {"date": "2009-07-31", "value": 18.25}, {"date": "2009-08-31", "value": 17.99}, {"date": "2009-09-30", "value": 18.52}, {"date": "2009-10-30", "value": 16.92}, {"date": "2009-11-30", "value": 17.4}, {"date": "2009-12-31", "value": 17.56}, {"date": "2010-01-29", "value": 15.27}, {"date": "2010-02-26", "value": 15.58}, {"date": "2010-03-31", "value": 16.41}, {"date": "2010-04-30", "value": 16.03}, {"date": "2010-05-31", "value": 14.55}, {"date": "2010-06-30", "value": 13.41}, {"date": "2010-07-30", "value": 14.05}, {"date": "2010-08-31", "value": 13.21}, {"date": "2010-09-30", "value": 14.63}, {"date": "2010-10-29", "value": 15.06}, {"date": "2010-11-30", "value": 14.83}, {"date": "2010-12-31", "value": 15.32}, {"date": "2011-01-31", "value": 14.93}, {"date": "2011-02-28", "value": 15.14}, {"date": "2011-03-31", "value": 14.85}, {"date": "2011-04-29", "value": 14.74}, {"date": "2011-05-31", "value": 13.74}, {"date": "2011-06-30", "value": 13.34}, {"date": "2011-07-29", "value": 13.08}, {"date": "2011-08-31", "value": 12.32}, {"date": "2011-09-30", "value": 11.66}, {"date": "2011-10-31", "value": 12.79}, {"date": "2011-11-30", "value": 12.32}, {"date": "2011-12-30", "value": 12.23}, {"date": "2012-01-31", "value": 12.72}, {"date": "2012-02-29", "value": 13.36}, {"date": "2012-03-30", "value": 13.74}, {"date": "2012-04-30", "value": 13.27}, {"date": "2012-05-31", "value": 12.33}, {"date": "2012-06-29", "value": 12.7}, {"date": "2012-07-31", "value": 13.08}, {"date": "2012-08-31", "value": 13.62}, {"date": "2012-09-28", "value": 13.62}, {"date": "2012-10-31", "value": 13.05}, {"date": "2012-11-30", "value": 13.11}, {"date": "2012-12-31", "value": 13.13}, {"date": "2013-01-31", "value": 13.71}, {"date": "2013-02-28", "value": 13.67}, {"date": "2013-03-29", "value": 14.0}, {"date": "2013-04-30", "value": 14.64}, {"date": "2013-05-31", "value": 15.04}, {"date": "2013-06-28", "value": 14.34}, {"date": "2013-07-31", "value": 15.84}, {"date": "2013-08-30", "value": 15.67}, {"date": "2013-09-30", "value": 16.21}, {"date": "2013-10-31", "value": 16.95}, {"date": "2013-11-29", "value": 17.51}, {"date": "2013-12-31", "value": 17.83}, {"date": "2014-01-31", "value": 17.43}, {"date": "2014-02-28", "value": 18.09}, {"date": "2014-03-31", "value": 17.37}, {"date": "2014-04-30", "value": 16.24}, {"date": "2014-05-30", "value": 16.77}, {"date": "2014-06-30", "value": 17.51}, {"date": "2014-07-31", "value": 17.34}, {"date": "2014-08-29", "value": 18.02}, {"date": "2014-09-30", "value": 17.55}, {"date": "2014-10-31", "value": 17.78}, {"date": "2014-11-28", "value": 18.38}, {"date": "2014-12-31", "value": 17.41}, {"date": "2015-01-30", "value": 17.07}, {"date": "2015-02-27", "value": 18.28}, {"date": "2015-03-31", "value": 17.76}, {"date": "2015-04-30", "value": 17.94}, {"date": "2015-05-29", "value": 18.15}, {"date": "2015-06-30", "value": 17.66}, {"date": "2015-07-31", "value": 18.54}, {"date": "2015-08-31", "value": 17.13}, {"date": "2015-09-30", "value": 16.59}, {"date": "2015-10-30", "value": 18.43}, {"date": "2015-11-30", "value": 18.53}, {"date": "2015-12-31", "value": 18.13}, {"date": "2016-01-29", "value": 17.19}, {"date": "2016-02-29", "value": 16.8}, {"date": "2016-03-31", "value": 17.77}, {"date": "2016-04-29", "value": 17.5}, {"date": "2016-05-31", "value": 18.05}, {"date": "2016-06-30", "value": 17.53}, {"date": "2016-07-29", "value": 18.59}, {"date": "2016-08-31", "value": 18.48}, {"date": "2016-09-30", "value": 18.59}, {"date": "2016-10-31", "value": 18.05}, {"date": "2016-11-30", "value": 17.93}, {"date": "2016-12-30", "value": 17.85}, {"date": "2017-01-31", "value": 18.55}, {"date": "2017-02-28", "value": 19.39}, {"date": "2017-03-31", "value": 19.38}, {"date": "2017-04-28", "value": 19.64}, {"date": "2017-05-31", "value": 20.06}, {"date": "2017-06-30", "value": 19.2}, {"date": "2017-07-31", "value": 19.57}, {"date": "2017-08-31", "value": 19.64}, {"date": "2017-09-29", "value": 19.33}, {"date": "2017-10-31", "value": 19.8}, {"date": "2017-11-30", "value": 19.84}, {"date": "2017-12-29", "value": 19.57}, {"date": "2018-01-31", "value": 20.26}, {"date": "2018-02-28", "value": 19.79}, {"date": "2018-03-30", "value": 18.71}, {"date": "2018-04-30", "value": 18.45}, {"date": "2018-05-31", "value": 19.26}, {"date": "2018-06-29", "value": 19.16}, {"date": "2018-07-31", "value": 19.36}, {"date": "2018-08-31", "value": 20.37}, {"date": "2018-09-28", "value": 20.04}, {"date": "2018-10-31", "value": 18.24}, {"date": "2018-11-30", "value": 18.31}, {"date": "2018-12-31", "value": 16.68}, {"date": "2019-01-31", "value": 18.58}, {"date": "2019-02-28", "value": 19.1}, {"date": "2019-03-29", "value": 19.67}, {"date": "2019-04-30", "value": 20.58}, {"date": "2019-05-31", "value": 18.76}, {"date": "2019-06-28", "value": 20.09}, {"date": "2019-07-31", "value": 20.16}, {"date": "2019-08-30", "value": 19.7}, {"date": "2019-09-30", "value": 19.63}, {"date": "2019-10-31", "value": 20.38}, {"date": "2019-11-29", "value": 21.28}, {"date": "2019-12-31", "value": 21.83}, {"date": "2020-01-31", "value": 21.84}, {"date": "2020-02-28", "value": 20.52}, {"date": "2020-03-31", "value": 20.42}, {"date": "2020-04-30", "value": 24.26}, {"date": "2020-05-29", "value": 25.82}, {"date": "2020-06-30", "value": 26.81}, {"date": "2020-07-31", "value": 27.36}, {"date": "2020-08-31", "value": 29.8}, {"date": "2020-09-30", "value": 27.63}, {"date": "2020-10-30", "value": 26.24}, {"date": "2020-11-30", "value": 28.48}, {"date": "2020-12-31", "value": 29.1}, {"date": "2021-01-29", "value": 27.85}, {"date": "2021-02-26", "value": 26.95}, {"date": "2021-03-31", "value": 26.88}, {"date": "2021-04-30", "value": 26.69}, {"date": "2021-05-31", "value": 25.87}, {"date": "2021-06-30", "value": 27.18}, {"date": "2021-07-30", "value": 26.85}, {"date": "2021-08-31", "value": 27.52}, {"date": "2021-09-30", "value": 25.82}, {"date": "2021-10-29", "value": 28.1}, {"date": "2021-11-30", "value": 28.26}, {"date": "2021-12-31", "value": 28.31}, {"date": "2022-01-31", "value": 25.51}, {"date": "2022-02-28", "value": 24.23}, {"date": "2022-03-31", "value": 25.04}, {"date": "2022-04-29", "value": 21.81}, {"date": "2022-05-31", "value": 21.36}, {"date": "2022-06-30", "value": 19.36}, {"date": "2022-07-29", "value": 22.31}, {"date": "2022-08-31", "value": 21.31}, {"date": "2022-09-30", "value": 18.91}, {"date": "2022-10-31", "value": 20.47}, {"date": "2022-11-30", "value": 21.84}, {"date": "2022-12-30", "value": 20.09}, {"date": "2023-01-31", "value": 22.62}, {"date": "2023-02-28", "value": 22.42}, {"date": "2023-03-31", "value": 24.25}, {"date": "2023-04-28", "value": 24.04}, {"date": "2023-05-31", "value": 25.4}, {"date": "2023-06-30", "value": 26.46}, {"date": "2023-07-31", "value": 25.83}, {"date": "2023-08-31", "value": 24.63}, {"date": "2023-09-29", "value": 22.96}, {"date": "2023-10-31", "value": 22.11}, {"date": "2023-11-30", "value": 23.92}, {"date": "2023-12-29", "value": 24.68}, {"date": "2024-01-31", "value": 24.94}, {"date": "2024-02-29", "value": 25.87}, {"date": "2024-03-29", "value": 25.65}, {"date": "2024-04-30", "value": 24.36}, {"date": "2024-05-31", "value": 25.23}, {"date": "2024-06-28", "value": 26.32}, {"date": "2024-07-31", "value": 25.54}, {"date": "2024-08-30", "value": 25.57}, {"date": "2024-09-30", "value": 25.84}, {"date": "2024-10-31", "value": 25.28}, {"date": "2024-11-29", "value": 26.23}, {"date": "2024-12-31", "value": 25.98}, {"date": "2025-01-31", "value": 26.42}, {"date": "2025-02-28", "value": 25.49}, {"date": "2025-03-31", "value": 23.34}, {"date": "2025-04-30", "value": 23.84}, {"date": "2025-05-30", "value": 25.81}, {"date": "2025-06-30", "value": 26.95}, {"date": "2025-07-31", "value": 27.02}, {"date": "2025-08-29", "value": 26.12}, {"date": "2025-09-30", "value": 26.84}, {"date": "2025-10-31", "value": 27.46}, {"date": "2025-11-28", "value": 26.22}, {"date": "2025-12-31", "value": 25.01}, {"date": "2026-01-30", "value": 24.76}, {"date": "2026-02-27", "value": 23.89}, {"date": "2026-03-31", "value": 21.03}, {"date": "2026-04-30", "value": 23.0}, {"date": "2026-05-18", "value": 24.29}], "source": {"method": "Bloomberg BEst P/E Ratio (12-month forward consensus, monthly)", "constituents": "nasdaq100_panels (Nasdaq 100)", "perTicker": "yfinance Ticker.info trailingEps for the daily TTM snapshot", "trailingSeed": null, "forwardFrequency": "monthly"}, "note": "Trailing PE is cap-weighted Σ(w·P)/Σ(w·trailingEps) computed from the 100 NDX constituents daily; without a multpl-equivalent for NDX no historical seed is shown yet, and the line will fill in over time as we update regularly. Forward PE comes from Bloomberg's \"BEst P/E Ratio\" (12-month consensus estimates), refreshed monthly back to January 2001 and extended at the same cadence going forward; the latest row is the most recent reading."};
+
+function setStatus(msg, kind){
+  const el = document.getElementById('status');
+  el.textContent = msg || '';
+  el.className = 'status' + (kind ? ' ' + kind : '');
+}
+function fmt(n, d=2){
+  return (n===null || n===undefined || isNaN(n)) ? '—' : Number(n).toFixed(d);
+}
+
+async function load(){
+  setStatus('正在获取最新数据…', 'loading');
+  try{
+    const res = await fetch(DATA_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    render(data, true);
+    setStatus('实时数据 · 更新于 ' + data.updated, 'ok');
+  }catch(e){
+    // 次级兜底：同源 latest.json（适合 GitHub Pages 等静态托管，由定时任务每日刷新）
+    try{
+      const r2 = await fetch('latest.json', {cache:'no-store'});
+      if(r2.ok){
+        const d2 = await r2.json();
+        render(d2, false);
+        setStatus('已用站内缓存数据（' + d2.updated + '）。如需实时数据，请联网后刷新。', '');
+        return;
+      }
+    }catch(_){}
+    // 末级兜底：文件内置快照
+    render(SNAPSHOT, false);
+    setStatus('已用文件内置快照（' + SNAPSHOT.updated + '）。要每日实时更新，请部署到联网环境后打开。', '');
+  }
+}
+
+function valueAt(data, yearsAgo){
+  const base = new Date(data.updated + 'T00:00:00Z');
+  const t = new Date(base); t.setUTCFullYear(t.getUTCFullYear() - yearsAgo);
+  let best = null;
+  for(const p of data.forward){
+    const d = new Date(p.date + 'T00:00:00Z');
+    if(d <= t) best = p; else break;
+  }
+  return best ? best.value : null;
+}
+
+function render(data, isLive){
+  const cur = data.current.forward;
+  const ttm = data.current.trailing;
+  const updated = data.updated;
+  const vals = data.forward.map(d => d.value);
+
+  const sorted = [...vals].sort((a,b)=>a-b);
+  const min = sorted[0];
+  const max = sorted[sorted.length-1];
+  const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+  const std = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/vals.length);
+  const z = std ? (cur - mean)/std : 0;
+  const below = vals.filter(v => v <= cur).length;
+  const pct = below / vals.length * 100;
+
+  document.getElementById('fwdVal').textContent = fmt(cur);
+  document.getElementById('fwdMeta').textContent = '数据更新于 ' + updated + (isLive ? '' : '（内置快照）');
+  document.getElementById('ttmVal').textContent = fmt(ttm);
+  document.getElementById('pctVal').textContent = fmt(pct, 1) + '%';
+
+  let bcls = 'b-mid', blab = '中性';
+  if(pct < 25){ bcls='b-low'; blab='偏低（相对便宜）'; }
+  else if(pct > 75){ bcls='b-high'; blab='偏高（相对昂贵）'; }
+  document.getElementById('valBadge').innerHTML =
+    '<span class="badge ' + bcls + '">' + blab + ' · Z=' + fmt(z,2) + '</span>';
+  document.getElementById('thermoBar').style.width = pct.toFixed(1) + '%';
+  renderDCA(pct);
+
+  const rows = [
+    ['当前前瞻 P/E', fmt(cur)],
+    ['1 年前', fmt(valueAt(data,1))],
+    ['3 年前', fmt(valueAt(data,3))],
+    ['5 年前', fmt(valueAt(data,5))],
+    ['历史最低', fmt(min)],
+    ['历史最高', fmt(max)],
+    ['历史均值', fmt(mean)],
+    ['标准差 (σ)', fmt(std)],
+  ];
+  document.querySelector('#statsTable tbody').innerHTML =
+    rows.map(r => '<tr><td>'+r[0]+'</td><td class="num">'+r[1]+'</td></tr>').join('');
+
+  drawChart(data, cur, mean);
+  saveCheck(updated, cur);
+}
+
+function computeDCA(pct){
+  // score: 估值越低(便宜) → 越高；pct 为前瞻市盈率历史百分位
+  const score = Math.max(0, Math.min(100, Math.round(100 - pct)));
+  // 倍数：分段线性映射（锚点：评分 → 倍数）
+  const anchors = [[0,0.5],[25,0.7],[50,1.0],[75,1.5],[100,2.5]];
+  let mult = anchors[anchors.length-1][1];
+  for(let i=0;i<anchors.length-1;i++){
+    const s0=anchors[i][0], m0=anchors[i][1], s1=anchors[i+1][0], m1=anchors[i+1][1];
+    if(score>=s0 && score<=s1){
+      const r=(score-s0)/((s1-s0)||1);
+      mult = m0 + r*(m1-m0); break;
+    }
+  }
+  mult = Math.max(0.5, Math.min(2.5, mult));
+  let zone, bcls;
+  if(score>=75){ zone='低估区 · 适合多投'; bcls='b-low'; }
+  else if(score>=50){ zone='标准区 · 正常定投'; bcls='b-mid'; }
+  else if(score>=25){ zone='偏高估 · 减少定投'; bcls='b-mid'; }
+  else { zone='极度高估 · 谨慎少投'; bcls='b-high'; }
+  return {score, mult, zone, bcls};
+}
+
+function renderDCA(pct){
+  const d = computeDCA(pct);
+  const sc = document.getElementById('dcaScore');
+  sc.textContent = d.score;
+  sc.style.color = d.score>=50 ? 'var(--green)' : (d.score>=25 ? 'var(--blue)' : 'var(--red)');
+  document.getElementById('dcaMult').textContent = fmt(d.mult,2) + '×';
+  const z = document.getElementById('dcaZone');
+  z.className = 'badge ' + d.bcls + ' dca-zone';
+  z.textContent = d.zone;
+  document.getElementById('dcaBar').style.width = d.score + '%';
+}
+
+function drawChart(data, cur, mean){
+  const chart = document.getElementById('chart');
+  const W=1000, H=430, padL=54, padR=20, padT=20, padB=46;
+  const fwd = data.forward;
+  const t0 = new Date(fwd[0].date + 'T00:00:00Z').getTime();
+  const t1 = new Date(fwd[fwd.length-1].date + 'T00:00:00Z').getTime();
+  const yMax = Math.ceil(Math.max.apply(null, fwd.map(d=>d.value)) / 10) * 10;
+  const yMin = 0;
+  const X = t => padL + (t - t0) / (t1 - t0) * (W - padL - padR);
+  const Y = v => (H - padB) - (v - yMin) / (yMax - yMin) * (H - padB - padT);
+
+  let grid = '';
+  for(let v=0; v<=yMax; v+=10){
+    const y = Y(v);
+    grid += '<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y.toFixed(1)+'" stroke="#1c2435" stroke-width="1"/>';
+    grid += '<text x="'+(padL-8)+'" y="'+(y+4).toFixed(1)+'" fill="#8a97ad" font-size="11" text-anchor="end">'+v+'</text>';
+  }
+  let xt = '';
+  [2001,2005,2010,2015,2020,2025,2026].forEach(yr=>{
+    const tt = Date.UTC(yr,0,1);
+    if(tt < t0 || tt > t1) return;
+    const x = X(tt);
+    xt += '<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB)+'" stroke="#161d2e" stroke-width="1"/>';
+    xt += '<text x="'+x.toFixed(1)+'" y="'+(H-padB+18)+'" fill="#8a97ad" font-size="11" text-anchor="middle">'+yr+'</text>';
+  });
+
+  const fpath = fwd.map(p=>{
+    const t = new Date(p.date + 'T00:00:00Z').getTime();
+    return X(t).toFixed(1) + ',' + Y(p.value).toFixed(1);
+  }).join(' ');
+  const ttm = data.trailing || [];
+  const tpath = ttm.map(p=>{
+    const t = new Date(p.date + 'T00:00:00Z').getTime();
+    return X(t).toFixed(1) + ',' + Y(p.value).toFixed(1);
+  }).join(' ');
+
+  const my = Y(mean);
+  const lastF = fwd[fwd.length-1];
+  const cx = X(new Date(lastF.date + 'T00:00:00Z').getTime());
+  const cy = Y(lastF.value);
+
+  const svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block">'
+    + grid + xt
+    + '<line x1="'+padL+'" y1="'+my.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+my.toFixed(1)+'" stroke="#ffb020" stroke-width="1" stroke-dasharray="5 4"/>'
+    + '<polyline points="'+fpath+'" fill="none" stroke="#4f8cff" stroke-width="2"/>'
+    + '<polyline points="'+tpath+'" fill="none" stroke="#5b6678" stroke-width="1.5" stroke-dasharray="2 3"/>'
+    + '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="3.5" fill="#4f8cff"/>'
+    + '<text x="'+cx.toFixed(1)+'" y="'+(cy-9).toFixed(1)+'" fill="#9ec1ff" font-size="11" text-anchor="middle">最新 '+lastF.value.toFixed(1)+'</text>'
+    + '<text x="'+(padL+4)+'" y="'+(my-5).toFixed(1)+'" fill="#ffb020" font-size="11">历史均值 '+mean.toFixed(1)+'</text>'
+    + '<rect id="ov" x="'+padL+'" y="'+padT+'" width="'+(W-padL-padR)+'" height="'+(H-padB-padT)+'" fill="transparent"/>'
+    + '</svg>';
+
+  chart.innerHTML = svg + '<div id="tip" style="position:absolute;pointer-events:none;display:none;background:#0b0f1a;border:1px solid #222b40;border-radius:8px;padding:6px 9px;font-size:12px;color:#e6ecf5;box-shadow:0 4px 16px rgba(0,0,0,.4);white-space:nowrap;z-index:5"></div>';
+
+  const svgEl = chart.querySelector('svg');
+  const ov = chart.querySelector('#ov');
+  const tip = chart.querySelector('#tip');
+  ov.addEventListener('mousemove', (e)=>{
+    const r = svgEl.getBoundingClientRect();
+    const cr = chart.getBoundingClientRect();
+    const sxv = (e.clientX - r.left) * (W / r.width);
+    const t = t0 + (sxv - padL) / (W - padL - padR) * (t1 - t0);
+    let best = fwd[0], bd = 1e15;
+    for(const p of fwd){
+      const d = Math.abs(new Date(p.date + 'T00:00:00Z').getTime() - t);
+      if(d < bd){ bd = d; best = p; }
+    }
+    tip.style.display = 'block';
+    let lx = e.clientX - cr.left + 14;
+    if(lx > cr.width - 130) lx = e.clientX - cr.left - 130;
+    tip.style.left = lx + 'px';
+    tip.style.top = (e.clientY - cr.top + 12) + 'px';
+    tip.innerHTML = best.date + '<br>前瞻 P/E: <b>' + best.value.toFixed(2) + '</b>×';
+  });
+  ov.addEventListener('mouseleave', ()=>{ tip.style.display = 'none'; });
+}
+
+function saveCheck(date, value){
+  try{
+    let arr = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+    if(!arr.find(r => r.date === date)){
+      arr.push({date, value});
+      arr.sort((a,b)=> a.date < b.date ? 1 : -1);
+      arr = arr.slice(0, 60);
+      localStorage.setItem(LS_KEY, JSON.stringify(arr));
+    }
+    renderHistory(arr);
+  }catch(e){}
+}
+function renderHistory(arr){
+  const el = document.getElementById('histList');
+  if(!arr || !arr.length) return;
+  el.innerHTML = arr.map(r =>
+    '<div class="row"><span>'+r.date+'</span><span>'+fmt(r.value)+'×</span></div>'
+  ).join('');
+}
+
+renderHistory(JSON.parse(localStorage.getItem(LS_KEY) || '[]'));
+load();
+</script>
+</body>
+</html>
