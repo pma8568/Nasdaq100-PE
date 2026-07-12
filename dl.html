@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>下载部署文件</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#0b0f1a;color:#e6ecf5;margin:0;padding:24px 18px;line-height:1.6}
+  h1{font-size:20px;margin:0 0 6px}
+  p{font-size:14px;color:#8a97ad;margin:0 0 20px}
+  .btn{display:block;width:100%;margin:12px 0;padding:16px;text-align:center;
+    background:linear-gradient(180deg,#3f7bff,#2f63e6);color:#fff;border:none;border-radius:12px;
+    font-size:16px;font-weight:700;text-decoration:none}
+  .tip{font-size:13px;color:#6b7689;margin-top:18px;background:#121826;border:1px solid #222b40;
+    border-radius:12px;padding:12px}
+  .warn{font-size:13px;color:#ffd9a8;margin-top:18px;background:#2a1d0e;border:1px solid #5a3d18;
+    border-radius:12px;padding:12px;line-height:1.7}
+  .warn b{color:#ffb866}
+  code{background:#161d2e;padding:1px 6px;border-radius:6px;color:#9ec1ff}
+</style>
+</head>
+<body>
+  <h1>下载网站部署文件</h1>
+  <p>点下面两个按钮，分别把文件存到手机「下载/Downloads」里。</p>
+
+  <a class="btn" download="index.html"
+     href="https://pma8568.github.io/Nasdaq100-PE/index.html">
+     ⬇️ 下载 index.html
+  </a>
+  <a class="btn" download="latest.json"
+     href="https://pma8568.github.io/Nasdaq100-PE/latest.json">
+     ⬇️ 下载 latest.json
+  </a>
+
+  <div class="warn">
+    <b>⚠️ 最容易踩的坑：文件名变成 (1)</b><br>
+    手机下载时，如果「下载」里已有一个同名文件，会自动改名成 <code>index(1).html</code>。<b>GitHub Pages 只认 <code>index.html</code> 这个名字</b>，如果传上去的是 <code>index(1).html</code>，旧网站不会变！<br>
+    <b>上传前请先在手机里把文件名改回 <code>index.html</code></b>（长按文件 → 重命名 → 删掉 <code>(1)</code>）。
+  </div>
+
+  <div class="tip">
+    <b>下载后怎么上传到 GitHub（只需上传 index.html）：</b><br>
+    1. 打开手机浏览器，进你的仓库（仓库名以你浏览器地址栏里实际的为准）；<br>
+    2. <b>先删除仓库里误传的 <code>index(1).html</code></b>：点它 → 右上角 ⋯ → Delete file → Commit；<br>
+    3. 在手机「下载」里把文件重命名为 <code>index.html</code>（删掉 <code>(1)</code>）；<br>
+    4. 回 GitHub 仓库，点右上角 <b>“Add file” → “Upload files”</b>；<br>
+    5. 把重命名后的 <code>index.html</code> 传上去（会替换旧的）；<br>
+    6. 拉到最下面点绿色 <b>“Commit changes”</b>；<br>
+    7. 等 1–2 分钟，访问 <code>https://pma8568.github.io/Nasdaq100-PE/</code> 即可。<br>
+    <br>
+    <b>说明：</b>网站每天会自动抓取最新数据，你<b>不需要每天更新</b>。只有在我改了网站功能（比如这次优化图表）时，才需要重新上传一次 index.html。
+  </div>
+</body>
+</html>
